@@ -1,0 +1,113 @@
+---
+title: "3D_BuiltUp_Areas_Colorado_Nebraska.Rmd"
+author: "Raymond Asamoah"
+date: "2025-06-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(terra)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+library(elevatr)
+library(png)
+library(rayshader)
+```
+
+## 🗺 Colorado - 3D Built-Up Area Map
+
+```{r colorado_data}
+us_states <- ne_states(country = "United States of America", returnclass = "sf")
+colorado_sf <- us_states %>% filter(name == "Colorado")
+elev_co <- get_elev_raster(locations = colorado_sf, z = 8, clip = "locations")
+ghs_raster <- rast("GHS_BUILT_S_NRES_E2020_GLOBE_R2023A_4326_3ss_V1_0.tif")
+colorado_builtup <- crop(ghs_raster, vect(colorado_sf), snap = "in", mask = TRUE)
+colorado_builtup_resampled <- resample(colorado_builtup, rast(elev_co), method = "near")
+crs_lambert_co <- "+proj=laea +lat_0=40 +lon_0=-105 +x_0=4321000 +y_0=3210000 +datum=WGS84 +units=m +no_defs"
+binary_co <- ifel(colorado_builtup_resampled > 0, 1, colorado_builtup_resampled)
+colorado_builtup_single <- project(binary_co, crs_lambert_co)
+elev_lambert_co <- project(rast(elev_co), crs_lambert_co)
+cols <- "#EB0017"
+from <- 1
+to <- t(col2rgb(cols))
+colorado_builtup_col <- subst(na.omit(colorado_builtup_single), from = from, to = to, names = cols)
+writeRaster(colorado_builtup_col, "colorado_builtup.png", NAflag = 0, overwrite = TRUE)
+img_co <- readPNG("colorado_builtup.png")
+elmat_co <- raster_to_matrix(elev_lambert_co)
+```
+
+```{r plot_3d_colorado, eval=FALSE}
+plot_3d(
+  elmat_co, zscale = 10, fov = 0, theta = 0, phi = 85,
+  windowsize = c(ncol(elev_lambert_co)/8, nrow(elev_lambert_co)/8),
+  shadow = TRUE, background = "white", solid = FALSE
+)
+```
+
+```{r render_hq_colorado, eval=FALSE}
+download.file("https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/photo_studio_loft_hall_4k.hdr",
+              destfile = "photo_studio_loft_hall_4k.hdr", mode = "wb")
+render_highquality(
+  filename = "3d-builtup-colorado.png",
+  environment_light = "photo_studio_loft_hall_4k.hdr",
+  light = TRUE,
+  interactive = FALSE
+)
+```
+
+---
+
+## 🌾 Nebraska - 3D Built-Up Area Map
+
+```{r nebraska_data}
+nebraska_sf <- us_states %>% filter(name == "Nebraska")
+elev_ne <- get_elev_raster(locations = nebraska_sf, z = 8, clip = "locations")
+nebraska_builtup <- crop(ghs_raster, vect(nebraska_sf), snap = "in", mask = TRUE)
+nebraska_builtup_resampled <- resample(nebraska_builtup, rast(elev_ne), method = "near")
+crs_lambert_ne <- "+proj=laea +lat_0=41.5 +lon_0=-99.5 +x_0=4321000 +y_0=3210000 +datum=WGS84 +units=m +no_defs"
+binary_ne <- ifel(nebraska_builtup_resampled > 0, 1, nebraska_builtup_resampled)
+nebraska_builtup_single <- project(binary_ne, crs_lambert_ne)
+elev_lambert_ne <- project(rast(elev_ne), crs_lambert_ne)
+nebraska_builtup_col <- subst(na.omit(nebraska_builtup_single), from = from, to = to, names = cols)
+writeRaster(nebraska_builtup_col, "nebraska_builtup.png", NAflag = 0, overwrite = TRUE)
+img_ne <- readPNG("nebraska_builtup.png")
+elmat_ne <- raster_to_matrix(elev_lambert_ne)
+```
+
+```{r plot_3d_nebraska, eval=FALSE}
+plot_3d(
+  elmat_ne, zscale = 10, fov = 0, theta = 0, phi = 85,
+  windowsize = c(ncol(elev_lambert_ne)/8, nrow(elev_lambert_ne)/8),
+  shadow = TRUE, background = "white", solid = FALSE
+)
+```
+
+```{r render_hq_nebraska, eval=FALSE}
+render_highquality(
+  filename = "3d-builtup-nebraska.png",
+  environment_light = "photo_studio_loft_hall_4k.hdr",
+  light = TRUE,
+  interactive = FALSE
+)
+```
+
+---
+
+## 🔍 Summary
+
+This project visualizes built-up areas in **Colorado** and **Nebraska** using the **2020 GHSL dataset** and **elevation models**, rendered in 3D with `rayshader`. It demonstrates how urban development interacts with terrain, helping reveal patterns useful for planning, conservation, and spatial analysis.
+
+Developed in **R** using:
+- `terra`
+- `rayshader`
+- `sf`
+- `elevatr`
+- `png`
+
+*Note: The `plot_3d()` and `render_highquality()` chunks are not evaluated in the knitted output — please run those manually in the console to view or export the 3D scenes.*
+
+
+
